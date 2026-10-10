@@ -126,14 +126,21 @@ export function boot() {
     .build()
     .then(() => {
       stage.scene.add(terrain.group);
+      if (lighting.moon.castShadow) terrain.group.traverse((o) => {
+        if (o.isMesh) o.castShadow = true;
+      });
       // Share the same texture set with the ground disc upgrade.
       const texSet = terrain.sharedTextures;
       if (texSet && environment.setTextures) environment.setTextures(texSet);
     })
     .catch((err) => console.warn('[good-girl] terrain skipped:', err && err.message));
 
-  const lighting = createLighting(THREE, {});
+  const lighting = createLighting(THREE, { quality: device.quality });
   stage.scene.add(lighting.group);
+  // Terrain casts into the moon's shadow map (desktop tier only).
+  if (lighting.moon.castShadow) stage.scene.traverse((o) => {
+    if (o.isMesh && o !== lighting.contact) o.receiveShadow = true;
+  });
 
   const particles = createParticles(THREE, { quality: device.quality, reducedMotion });
   stage.scene.add(particles.group);
@@ -325,6 +332,7 @@ export function boot() {
     environment.update(dt, t, reducedMotion);
     lighting.applyPalette(d.palette, d.palette.starInfluence, starPos, reducedMotion);
     lighting.update(dt, starPos);
+    lighting.contact.position.set(girlPos.x, 0.012, girlPos.z);
     particles.applyPalette(d.palette);
     particles.update(dt, t, d.atmosphere, starPos, pxUnit);
 

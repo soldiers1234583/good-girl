@@ -37,6 +37,19 @@ export function createStage(canvas, ctx = {}) {
   renderer.toneMappingExposure = 1.12;
   renderer.sortObjects = true;
 
+  // Shadow maps: desktop tier only. The pack-style moonlight sweep reads as
+  // real terrain shadows there; phones keep the cheap blob contact shadow
+  // (scene/lighting.js), because a full depth pre-pass would cost more than
+  // the entire rest of the frame on tier 0/1.
+  const enableShadows = tier >= 2 && renderer.shadowMap && typeof renderer.shadowMap === 'object';
+  if (enableShadows) {
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.autoUpdate = true;
+  } else if (renderer.shadowMap) {
+    renderer.shadowMap.enabled = false;
+  }
+
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(31, 1, 0.1, 140);
   camera.position.set(0, 1.45, 7.4);
