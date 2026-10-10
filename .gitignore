@@ -1,0 +1,4 @@
+node_modules/
+_env/
+_probe/shader/extracted/
+.DS_Store
