@@ -13,6 +13,24 @@
  */
 
 import { makeRandom } from '../util/math.js';
+import { loadMinecraftTexture } from '../util/textures.js';
+
+/**
+ * Optional Faithful-texture wiring. Called from main.js ONCE at boot with the
+ * loaded PNG set; before it runs the ground keeps its canvas-painted block
+ * falloff, after it the ground uses real grass_top + a dirt-shoulder ring.
+ */
+function applyMinecraftTextures(THREE, ctx, groundMat, ringTextureRef) {
+  if (!ctx.tex) return;
+  const grassTop = ctx.tex.grassTop || ctx.tex.dirt;
+  if (grassTop) {
+    groundMat.map = grassTop;
+    groundMat.map.repeat.set(48, 48);
+    groundMat.map.wrapS = groundMat.map.wrapT = THREE.RepeatWrapping;
+    groundMat.needsUpdate = true;
+  }
+  if (ctx.tex.dirt) ringTextureRef.value.repeat.set(20, 20);
+}
 
 export function createEnvironment(THREE, ctx = {}) {
   const quality = Object.assign({ backdrop: 1 }, ctx.quality || {});
@@ -66,6 +84,24 @@ export function createEnvironment(THREE, ctx = {}) {
   ground.position.y = -0.002;
   group.add(ground);
   disposables.push(groundGeo, groundMat);
+
+  /* ---------- real-texture upgrade (async, safe to race) ---------- */
+  // main.js awaits terrain.build() and then calls environment.setTextures();
+  // until then the painted falloff above stands in, so nothing renders blank.
+  function setTextures(texSet) {
+    if (!texSet) return;
+    const grassTop = texSet.grassTop && texSet.grassTop;
+    if (grassTop) {
+      // Tiled grass over the whole disc; the painted light falloff no longer
+      // lives in the map (the modulate via material.color continues to give
+      // the radial vignette in combination with scene fog). Repeat ~ 1 block
+      // per 0.7 world units keeps the pixel cells readable at camera range.
+      grassTop.repeat.set(28, 28);
+      grassTop.wrapS = grassTop.wrapT = THREE.RepeatWrapping;
+      groundMat.map = grassTop;
+      groundMat.needsUpdate = true;
+    }
+  }
 
   /* ---------- distant blocky silhouettes ---------- */
   // Two rings at different radii read as two depth planes when the camera
@@ -176,5 +212,5 @@ export function createEnvironment(THREE, ctx = {}) {
     layers.length = 0;
   }
 
-  return { group, fog, applyPalette, update, dispose, ground };
+  return { group, fog, applyPalette, update, dispose, ground, setTextures };
 }

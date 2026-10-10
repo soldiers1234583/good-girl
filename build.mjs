@@ -13,7 +13,7 @@
  */
 
 import esbuild from 'esbuild';
-import { readFileSync, writeFileSync, mkdirSync, statSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, statSync, readdirSync, copyFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -77,6 +77,17 @@ export async function build() {
   mkdirSync(join(HERE, 'dist'), { recursive: true });
   const out = join(HERE, 'dist', 'index.html');
   writeFileSync(out, html);
+
+  // dist is meant to be fully standalone, but the Minecraft PNGs are referenced
+  // at runtime by URL (`public/textures/minecraft/*.png`). Every packer that
+  // opens dist does so from a directory next to the three textures paths it
+  // resolves relative to, so copy the folder across; a missing texture would
+  // otherwise silently degrade to painted stand-ins even with the files on
+  // disk sitting in public/.
+  const texSrc = join(HERE, 'public', 'textures', 'minecraft');
+  const texDst = join(HERE, 'dist', 'textures', 'minecraft');
+  mkdirSync(texDst, { recursive: true });
+  for (const f of readdirSync(texSrc)) copyFileSync(join(texSrc, f), join(texDst, f));
 
   return { html, bytes: Buffer.byteLength(html), jsBytes: Buffer.byteLength(js) };
 }

@@ -21,6 +21,7 @@ import { createStage } from './core/stage.js';
 import { createCharacter } from './scene/character.js';
 import { createStar } from './scene/star.js';
 import { createEnvironment } from './scene/environment.js';
+import { createTerrain } from './scene/terrain.js';
 import { createParticles } from './scene/particles.js';
 import { createLighting } from './scene/lighting.js';
 import { createCameraRig } from './camera/cameraRig.js';
@@ -115,6 +116,21 @@ export function boot() {
   const environment = createEnvironment(THREE, { quality: device.quality });
   stage.scene.add(environment.group);
   stage.setFog(environment.fog);
+
+  // The Minecraft world: instanced Faithful blocks + sprites. Built async
+  // (texture fetches) but NEVER awaited on the critical path — the stage
+  // renders with the base clearing immediately, and the block world pops in
+  // when the PNGs land (or their painted stand-ins, if they don't).
+  const terrain = createTerrain(THREE, { quality: device.quality });
+  terrain
+    .build()
+    .then(() => {
+      stage.scene.add(terrain.group);
+      // Share the same texture set with the ground disc upgrade.
+      const texSet = terrain.sharedTextures;
+      if (texSet && environment.setTextures) environment.setTextures(texSet);
+    })
+    .catch((err) => console.warn('[good-girl] terrain skipped:', err && err.message));
 
   const lighting = createLighting(THREE, {});
   stage.scene.add(lighting.group);
@@ -393,6 +409,7 @@ export function boot() {
       character,
       star,
       environment,
+      terrain,
       lighting,
       particles,
       cameraRig,
@@ -418,6 +435,7 @@ export function boot() {
       character.dispose();
       star.dispose();
       environment.dispose();
+      terrain.dispose();
       particles.dispose();
       lighting.dispose();
       stage.dispose();
