@@ -127,16 +127,42 @@ void main() {
   }
   col += neb * (vec3(0.10, 0.16, 0.26) + vec3(0.05, 0.03, 0.0) * vnoise(np * 1.3 + 40.0));
 
-  /* ---- blocky clouds: noise sampled on a QUANTISED lattice, so each
-         lattice cell shares one value and the shapes read as slabs ---- */
-  vec2 cp = vec2(uv.x * aspect * 6.0 + uTime * 0.01, uv.y * 3.2);
-  vec2 cq = floor(cp);
-  float cn = vnoise(cq * 0.55) * 0.72 + hash21(cq) * 0.28;
-  float cloud = smoothstep(0.58, 0.64, cn);
+  /* ---- moonlit soft clouds (two layers): smooth vnoise clouds this time,
+         drifting slowly; the upper layer, nearer the moon, catches a cool
+         rim. Day steel-blue turns golden as the story warms. ---- */
   float day = smoothstep(0.35, 0.95, uProgress);
-  vec3 cloudCol = mix(vec3(0.42, 0.5, 0.72), vec3(1.0, 0.86, 0.62), day);
-  col = mix(col, cloudCol, cloud * (0.1 + 0.06 * day) * upper);
+  // layer A: high, thin
+  {
+    vec2 cp = vec2(uv.x * aspect * 3.2 + uTime * 0.006, uv.y * 5.0);
+    float cn = vnoise(cp) * 0.7 + vnoise(cp * 2.3 + 31.0) * 0.3;
+    float cloudA = smoothstep(0.60, 0.78, cn);
+    vec3 litA = mix(vec3(0.30, 0.38, 0.55) * (0.55 + nightNow * 0.45), vec3(1.0, 0.86, 0.62), day);
+    col = mix(col, litA, cloudA * 0.16 * upper);
+  }
+  // layer B: low, denser
+  {
+    vec2 cp = vec2(uv.x * aspect * 5.5 - uTime * 0.010, uv.y * 6.5 + 9.0);
+    float cn = vnoise(cp) * 0.6 + vnoise(cp * 3.1 + 7.0) * 0.4;
+    float cloudB = smoothstep(0.62, 0.82, cn);
+    vec3 litB = mix(vec3(0.24, 0.30, 0.46) * (0.5 + nightNow * 0.5), vec3(1.0, 0.9, 0.7), day);
+    col = mix(col, litB, cloudB * 0.12 * upper);
+  }
 #endif
+
+  /* ---- the moon: full against the night, fades as the story warms toward
+         the sunrise ending. Fixed direction (mirrors the directional
+         moonlight in scene/lighting.js). Cel + halo + glare falloff. ---- */
+  {
+    vec2 md2 = (uv - vec2(0.22, 0.78)) * vec2(aspect, 1.0);
+    float mDist = length(md2);
+    float moonVis = 1.0 - smoothstep(0.45, 0.75, uProgress);
+    float mDisc = (1.0 - smoothstep(0.030, 0.034, mDist)) * moonVis;
+    // crisper moon with a thin crater-ish inner shade
+    float inner = (1.0 - smoothstep(0.018, 0.022, mDist)) * moonVis;
+    float mHalo = exp(-mDist * 9.0) * moonVis;
+    vec3 moonCol = vec3(0.86, 0.9, 1.0);
+    col += moonCol * (mDisc * (0.55 + 0.35 * inner) * 0.85 + mHalo * 0.22);
+  }
 
   /* ---- the square sun: vanilla's sun IS a block. It rises as the story
          turns warm — disc, halo, then rays. ---- */
