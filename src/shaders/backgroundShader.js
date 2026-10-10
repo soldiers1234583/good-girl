@@ -46,6 +46,17 @@ uniform vec3 uColorB;       // outer deep sky (palette bgOuter)
 uniform vec2 uResolution;   // drawing-buffer size, px
 varying vec2 vUv;
 
+/* Reimagined-style night ramp relationships (written fresh for this shader:
+   relationships observed while reading that pack's sky colors — zenith darkest,
+   a mid band reusing a squared-down version of the up color, and a horizon band
+   pushed slightly blue. The code itself is ours.) */
+vec3 nightMid(vec3 upColor) {
+  return sqrt(max(upColor, vec3(0.0))) * 0.65;
+}
+vec3 nightDown(vec3 midColor) {
+  return midColor * vec3(0.82, 0.82, 0.92);
+}
+
 float hash21(vec2 p) {
   p = fract(p * vec2(123.34, 456.21));
   p += dot(p, p + 45.32);
@@ -68,21 +79,54 @@ void main() {
   vec2 uv = vUv;
   float aspect = uResolution.x / max(uResolution.y, 1.0);
 
-  /* ---- base gradient: the CSS backdrop's ellipse, inherited verbatim ---- */
+  /* ---- base gradient: the CSS backdrop's ellipse, inherited verbatim, then
+         regraded Reimagined-style: zenith darkest, a mid band at sqrt*0.65 of
+         the up color, horizon band pushed slightly blue and brighter. ---- */
   vec2 rc = (uv - vec2(0.5, 0.44)) / vec2(1.2, 0.9);
-  float t = clamp(length(rc) / 0.72, 0.0, 1.0);
+  float rawLen = length(rc) / 0.72;
+  float t = clamp(rawLen, 0.0, 1.0);
   vec3 col = mix(uColorA, uColorB, t);
+  float night = 1.0 - smoothstep(0.1, 0.45, uProgress);
+  if (night > 0.001) {
+    vec3 up = uColorB * 0.9;
+    vec3 mid = nightMid(up);
+    vec3 down = nightDown(mid);
+    // Horizon band: away from centre (rawLen>1) fades the outer colour into
+    // the 'down' tint, strongest near the horizon line (vUv.y ~ 0.44).
+    float horizonBand = exp(-abs(uv.y - 0.42) * 5.5) * smoothstep(0.35, 1.15, rawLen);
+    col = mix(col, down, min(horizonBand * 0.28 * night, 0.6));
+    col = mix(col, mid, smoothstep(0.4, 0.9, rawLen) * 0.12 * night);
+  }
 
-  /* ---- night: pixel stars on a coarse grid, gone by mid-journey ---- */
+  /* ---- night: pixel stars on a coarse grid, gone by mid-journey. Reimagined
+         style: three hash octaves multiplied (their GetStars), brightness
+         squared, fade gated to the upper sky and near-horizon occlusion. ---- */
+  float nightNow = 1.0 - smoothstep(0.1, 0.45, uProgress);
   vec2 cell = floor(uv * max(uResolution, vec2(1.0)) / 3.0);
   float h = hash21(cell);
-  float star = step(0.994, h);
+  float star = step(0.992, h);
+  star *= hash21(cell + 0.1);
+  star *= hash21(cell + 0.23);
   float twinkle = 0.55 + 0.45 * sin(uTime * 2.2 + h * 90.0);
-  float night = 1.0 - smoothstep(0.1, 0.45, uProgress);
+  twinkle *= twinkle;
   float upper = smoothstep(0.3, 0.55, uv.y);
-  col += vec3(0.75, 0.85, 1.0) * star * twinkle * night * upper * 0.8;
+  col += vec3(0.38, 0.4, 0.5) * star * twinkle * nightNow * upper * 0.8;
 
 #ifndef LOW
+  /* ---- nebula: a DIM two-octave FBM band near the horizon (inspired by the
+         five-octave aurora/nebula common to shader packs, cut down for
+         mobile). Cold blue with a hint of warm accent, drifting very slowly. ---- */
+  float neb = 0.0;
+  vec2 np = vec2(uv.x * aspect * 2.0 + uTime * 0.004, (uv.y - 0.42) * 6.0);
+  {
+    float n1 = vnoise(np);
+    float n2 = vnoise(np * 2.7 + 11.0);
+    neb = n1 * 0.65 + n2 * 0.35;
+    neb = smoothstep(0.55, 0.85, neb);
+    neb *= exp(-abs(uv.y - 0.46) * 4.0) * nightNow;
+  }
+  col += neb * (vec3(0.10, 0.16, 0.26) + vec3(0.05, 0.03, 0.0) * vnoise(np * 1.3 + 40.0));
+
   /* ---- blocky clouds: noise sampled on a QUANTISED lattice, so each
          lattice cell shares one value and the shapes read as slabs ---- */
   vec2 cp = vec2(uv.x * aspect * 6.0 + uTime * 0.01, uv.y * 3.2);
