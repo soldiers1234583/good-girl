@@ -1,0 +1,6 @@
+
+> good-girl@1.0.0 build
+> node build.mjs
+
+dist/index.html  704.5 kB  (bundle 67.7 kB, css inlined, three inlined)
+no external references remaining — openable from file://

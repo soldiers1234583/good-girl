@@ -1,0 +1,906 @@
+/* ==================================================================
+   Good Girl — cinematic interactive piece
+   ------------------------------------------------------------------
+   Layered deliberately:
+
+     .track / .stage   the scroll container and the sticky viewport
+     canvas            the 3D scene
+     .vignette         framing + the reaction bloom
+     #overlay          the badge reward
+     #ui               typography and HUD
+
+   Only #ui and #overlay take pointer events, and only on their
+   interactive children — the canvas keeps its own drag/look handling.
+   ================================================================== */
+
+:root {
+  --accent: #c7d6ff;
+  --cursor-rgb: 159, 192, 255;
+  --vig: 0.55;
+  --track-height: 840vh;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --serif: Georgia, "Times New Roman", "Nimbus Roman", serif;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  background: #03050f;
+  /* Keep the browser's own pull-to-refresh and overscroll glow from breaking
+     the illusion, without blocking scrolling entirely. */
+  overscroll-behavior-y: contain;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100%;
+  color: #f6ecd4;
+  font-family: var(--sans);
+  background-color: #03050f;
+  overflow-x: hidden;
+}
+
+/*
+ * The colour journey's sky. A fixed layer instead of a body background with
+ * background-attachment: fixed — iOS Safari treats that inconsistently and
+ * repaints it on every scroll frame, which is exactly the wrong cost profile
+ * for a piece whose whole budget is frame time.
+ *
+ * --stage-bg is republished by the palette whenever it visibly changes; the
+ * fallback is the deep-night opening, for the pre-JS frame.
+ */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-color: #03050f;
+  background-image: var(--stage-bg, radial-gradient(ellipse 120% 90% at 50% 44%, #0a1230 0%, #03050f 72%));
+  /* Transitions between palette writebacks are already smooth (the damping
+     happens upstream in JS), so no CSS transition is needed here. */
+}
+
+/* ---------------- scroll structure ---------------- */
+
+.track {
+  position: relative;
+  height: var(--track-height);
+  width: 100%;
+  /* Above .backdrop, which is a fixed layer at z-index 0. */
+  z-index: 1;
+}
+
+.stage {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  height: 100dvh;
+  width: 100%;
+  overflow: hidden;
+  transition: opacity 900ms ease 120ms;
+}
+
+html:not(.is-ready) .stage {
+  opacity: 0;
+}
+
+#scene {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  /* pan-y keeps the vertical scroll gesture (the whole interaction) intact
+     while absorbing stray horizontal drags. */
+  touch-action: pan-y;
+}
+
+/* ---------------- framing ---------------- */
+
+.vignette {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  /* Radial darkening owned by the palette; the inset shadow keeps a constant
+     hard edge so the frame never looks flat. */
+  background: radial-gradient(ellipse 78% 68% at 50% 46%, transparent 42%, rgba(2, 3, 10, 0.92) 100%);
+  opacity: var(--vig);
+  transition: opacity 240ms linear;
+}
+
+/* The bloom that fires when the star answers her. */
+.vignette::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 58%, rgba(255, 226, 170, 0.3) 0%, rgba(255, 180, 90, 0.1) 34%, transparent 62%);
+  opacity: 0;
+  transition: opacity 620ms ease-out;
+}
+
+html.is-flash .vignette::after {
+  opacity: 1;
+  transition-duration: 90ms;
+}
+
+/* A very light film grain so the gradients do not band on cheap panels. */
+.grain {
+  position: fixed;
+  inset: -50%;
+  z-index: 3;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.85) 0.5px, transparent 0.5px);
+  background-size: 3px 3px;
+  mix-blend-mode: overlay;
+}
+
+/* ---------------- layers ---------------- */
+
+#overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 6;
+  pointer-events: none;
+}
+
+#ui {
+  position: fixed;
+  inset: 0;
+  z-index: 7;
+  pointer-events: none;
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px)
+    env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+}
+
+/* ==================================================================
+   Story typography
+   ================================================================== */
+
+.phrase {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 12vh;
+  text-align: center;
+  padding: 0 6vw;
+  opacity: 0;
+  will-change: opacity;
+}
+
+/* The final line moves out of the badge's way and sits up top. */
+.phrase--pin {
+  bottom: auto;
+  top: 9vh;
+}
+
+.phrase__line {
+  display: inline-block;
+  color: #fff8e8;
+  text-shadow: 0 2px 30px rgba(0, 0, 0, 0.75), 0 0 46px rgba(0, 0, 0, 0.5);
+  will-change: transform, letter-spacing;
+}
+
+.phrase--lg .phrase__line {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: clamp(1.55rem, 4.6vw, 3.6rem);
+  line-height: 1.18;
+}
+
+.phrase--md .phrase__line {
+  font-size: clamp(0.95rem, 2.4vw, 1.45rem);
+  font-weight: 300;
+  line-height: 1.4;
+  opacity: 0.94;
+}
+
+/* Mask wrappers: the inner span slides up from behind a hard edge. */
+.w {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: bottom;
+  /* Descenders on the serif would otherwise be clipped by the mask. */
+  padding-bottom: 0.12em;
+  margin-bottom: -0.12em;
+}
+
+.w__i {
+  display: inline-block;
+  will-change: transform, opacity;
+}
+
+/* ==================================================================
+   HUD
+   ================================================================== */
+
+.hud {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.hud-title {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  transition: opacity 700ms var(--ease-out), transform 900ms var(--ease-out), filter 700ms ease;
+}
+
+.hud-title.is-away {
+  opacity: 0;
+  transform: translate(-50%, -46%);
+  filter: blur(6px);
+}
+
+.hud-title__eyebrow {
+  font-size: 0.6rem;
+  letter-spacing: 0.42em;
+  text-transform: uppercase;
+  opacity: 0.5;
+  margin-bottom: 1.1rem;
+}
+
+.hud-title__name {
+  margin: 0;
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: clamp(2.4rem, 9vw, 6rem);
+  letter-spacing: 0.16em;
+  text-indent: 0.16em;
+  line-height: 1;
+  color: #fff8e8;
+  text-shadow: 0 6px 60px rgba(0, 0, 0, 0.8);
+}
+
+.hud-title__sub {
+  margin-top: 1.4rem;
+  font-size: 0.64rem;
+  letter-spacing: 0.36em;
+  text-transform: uppercase;
+  opacity: 0.62;
+  animation: breathe 3.4s ease-in-out infinite;
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+
+/* ---- chapter rail ---- */
+
+.rail {
+  position: absolute;
+  right: calc(14px + env(safe-area-inset-right, 0px));
+  top: 50%;
+  transform: translateY(-50%);
+  height: 44vh;
+  width: 6px;
+  pointer-events: auto;
+  opacity: 0.72;
+}
+
+.rail__track {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.04));
+}
+
+.rail__fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--accent), rgba(255, 255, 255, 0.5));
+  transform-origin: top center;
+  transform: scaleY(0);
+  box-shadow: 0 0 14px var(--accent);
+}
+
+.rail__marker {
+  position: absolute;
+  left: 50%;
+  width: 34px;
+  height: 34px;
+  margin: -17px 0 0 -17px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  pointer-events: auto;
+}
+
+.rail__dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.42);
+  transition: transform 320ms var(--ease-out), background 320ms ease, box-shadow 320ms ease;
+}
+
+.rail__marker:hover .rail__dot {
+  transform: scale(1.5);
+  background: #fff;
+}
+
+.rail__marker.is-active .rail__dot {
+  background: var(--accent);
+  transform: scale(1.9);
+  box-shadow: 0 0 12px var(--accent);
+}
+
+/* ---- caption ---- */
+
+.caption {
+  position: absolute;
+  left: calc(24px + env(safe-area-inset-left, 0px));
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  font-size: 0.6rem;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: rgba(255, 248, 232, 0.68);
+  max-width: 42vw;
+}
+
+/* The caption re-enters on every chapter change. */
+.caption.is-in {
+  animation: captionIn 620ms var(--ease-out);
+}
+
+@keyframes captionIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+    letter-spacing: 0.44em;
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    letter-spacing: 0.3em;
+  }
+}
+
+/* ---- ending / replay ---- */
+
+.ending {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(7vh + env(safe-area-inset-bottom, 0px));
+  text-align: center;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 800ms var(--ease-out), transform 800ms var(--ease-out);
+  pointer-events: none;
+}
+
+.ending.is-visible {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+
+.replay {
+  font-family: var(--sans);
+  font-size: 0.66rem;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: rgba(255, 248, 232, 0.82);
+  background: rgba(18, 14, 30, 0.5);
+  border: 1px solid rgba(255, 226, 160, 0.24);
+  border-radius: 999px;
+  padding: 0.72rem 1.5rem;
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: border-color 300ms ease, color 300ms ease, background 300ms ease, transform 300ms var(--ease-out);
+}
+
+.replay:hover {
+  color: #fff;
+  border-color: var(--accent);
+  background: rgba(28, 22, 44, 0.66);
+  transform: translateY(-1px);
+}
+
+.replay__ico {
+  display: inline-block;
+  margin-right: 0.5rem;
+  transition: transform 600ms var(--ease-out);
+}
+
+.replay:hover .replay__ico {
+  transform: rotate(-180deg);
+}
+
+/* ---- notices ---- */
+
+.notice {
+  position: absolute;
+  top: calc(16px + env(safe-area-inset-top, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.58rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(255, 248, 232, 0.55);
+  background: rgba(12, 10, 22, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  padding: 0.45rem 0.95rem;
+  max-width: 88vw;
+  text-align: center;
+  pointer-events: none;
+}
+
+/* ==================================================================
+   The badge
+   ================================================================== */
+
+.badge-wrap {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+.badge-stage {
+  perspective: 1000px;
+  perspective-origin: 50% 45%;
+}
+
+.badge-tilt {
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+
+.badge {
+  position: relative;
+  width: min(430px, 76vw);
+  aspect-ratio: 320 / 220;
+  will-change: transform;
+  transform-style: preserve-3d;
+}
+
+.badge-bloom {
+  position: absolute;
+  width: min(660px, 116vw);
+  height: min(660px, 116vw);
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(255, 226, 160, 0.4) 0%,
+    rgba(255, 190, 90, 0.16) 34%,
+    rgba(255, 160, 60, 0.05) 55%,
+    transparent 72%
+  );
+  filter: blur(12px);
+  opacity: 0;
+  will-change: transform, opacity;
+}
+
+.badge__frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  filter: drop-shadow(0 18px 48px rgba(0, 0, 0, 0.55)) drop-shadow(0 0 calc(var(--badge-glow, 0.3) * 46px) rgba(255, 206, 110, 0.75));
+}
+
+.badge__content {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.1rem;
+  text-align: center;
+  color: #fff3d6;
+}
+
+.badge__title {
+  font-family: var(--serif);
+  font-size: clamp(1.1rem, 4.4vw, 1.9rem);
+  letter-spacing: 0.2em;
+  text-indent: 0.2em;
+  line-height: 1;
+  background: linear-gradient(180deg, #fff6dc 0%, #ffd77a 52%, #d9a03e 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.28));
+}
+
+.badge__subtitle {
+  font-size: clamp(0.5rem, 1.7vw, 0.72rem);
+  letter-spacing: 0.62em;
+  text-indent: 0.62em;
+  color: #ffe6a8;
+  opacity: 0.92;
+}
+
+.badge__star {
+  font-size: clamp(1.05rem, 4.6vw, 1.85rem);
+  line-height: 1;
+  margin: 0.16em 0;
+  color: #fff3cd;
+  text-shadow: 0 0 calc(10px + var(--badge-glow, 0.3) * 26px) rgba(255, 214, 120, 0.95),
+    0 0 calc(28px + var(--badge-glow, 0.3) * 40px) rgba(255, 170, 60, 0.5);
+  animation: badgeStar 3.6s ease-in-out infinite;
+}
+
+@keyframes badgeStar {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.92;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+}
+
+.badge__flourish {
+  display: flex;
+  gap: 0.62em;
+  font-size: clamp(0.4rem, 1.5vw, 0.6rem);
+  color: #ffd98a;
+  opacity: 0.8;
+  margin-bottom: 0.35em;
+}
+
+.badge__flourish--low {
+  margin-top: 0.42em;
+  margin-bottom: 0;
+  opacity: 0.62;
+}
+
+.badge__flourish span:nth-child(2) {
+  transform: translateY(-0.22em);
+}
+
+/* Hovering the plaque brightens it — handled in JS via --badge-glow, this
+   just adds a hair of extra sheen. */
+.badge__sheen {
+  opacity: calc(0.25 + var(--badge-glow, 0.3) * 0.6);
+  transition: opacity 200ms linear;
+  /* Slow metallic drift: the light on the gold never sits perfectly still.
+     Restrained on purpose — 9s round trip, 8 user-units of travel. */
+  animation: badgeSheenDrift 9s ease-in-out infinite;
+}
+
+@keyframes badgeSheenDrift {
+  0%,
+  100% {
+    transform: translateX(-8px);
+  }
+  50% {
+    transform: translateX(8px);
+  }
+}
+
+html.is-reduced .badge__sheen {
+  animation: none;
+}
+
+/* The reveal's light sweep: a band of warm white that crosses the plaque
+   exactly once while --badge-sweep travels 0 → 1 (JS-driven), with opacity
+   peaking mid-transition via --badge-sweep-a. background-size is 300% so the
+   band starts fully off-frame left and ends fully off-frame right.
+   Corner radii are percentages so they track the SVG's rx=26/320x220 at any
+   rendered size. */
+.badge__glint {
+  position: absolute;
+  inset: 0;
+  border-radius: 8.125% / 11.818%;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  background-image: linear-gradient(
+    105deg,
+    transparent 36%,
+    rgba(255, 246, 220, 0.35) 46%,
+    rgba(255, 255, 255, 0.9) 50%,
+    rgba(255, 246, 220, 0.35) 54%,
+    transparent 64%
+  );
+  background-size: 300% 100%;
+  background-position: calc((1 - var(--badge-sweep, 0)) * 100%) 0;
+  opacity: var(--badge-sweep-a, 0);
+}
+
+/* ==================================================================
+   Custom cursor
+   ================================================================== */
+
+.cursor-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 260ms ease;
+}
+
+.cursor-layer.is-visible {
+  opacity: 1;
+}
+
+.cursor-dot,
+.cursor-ring {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border-radius: 50%;
+  will-change: transform;
+}
+
+.cursor-dot {
+  width: 6px;
+  height: 6px;
+  background: rgb(var(--cursor-rgb));
+  box-shadow: 0 0 10px rgba(var(--cursor-rgb), 0.95), 0 0 22px rgba(var(--cursor-rgb), 0.5);
+}
+
+.cursor-ring {
+  width: 30px;
+  height: 30px;
+  border: 1px solid rgba(var(--cursor-rgb), 0.55);
+  box-shadow: 0 0 18px rgba(var(--cursor-rgb), 0.28) inset;
+  transition: border-color 260ms ease, background-color 260ms ease;
+}
+
+.cursor-layer.is-down .cursor-ring {
+  border-color: rgba(var(--cursor-rgb), 0.9);
+  background-color: rgba(var(--cursor-rgb), 0.08);
+}
+
+.cursor-label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  font-size: 0.54rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgb(var(--cursor-rgb));
+  white-space: nowrap;
+  opacity: 0;
+  transform-origin: left center;
+  transition: opacity 240ms ease;
+  will-change: transform;
+}
+
+.cursor-layer.has-label .cursor-label {
+  opacity: 0.9;
+}
+
+/* Only hide the native cursor when the custom one is actually running. */
+html.has-custom-cursor,
+html.has-custom-cursor * {
+  cursor: none !important;
+}
+
+html.has-custom-cursor button,
+html.has-custom-cursor [data-cursor] {
+  cursor: none !important;
+}
+
+/* ==================================================================
+   DOM-only fallback (no WebGL)
+   ================================================================== */
+
+.no-webgl .stage,
+.no-webgl .vignette,
+.no-webgl .grain {
+  display: none;
+}
+
+.no-webgl .track {
+  height: 500vh;
+}
+
+.fallback {
+  position: fixed;
+  inset: 0;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(
+    ellipse 120% 90% at 50% 44%,
+    hsl(calc(230deg - var(--p, 0) * 200deg) 60% calc(16% + var(--p, 0) * 16%)) 0%,
+    #04060f 74%
+  );
+  overflow: hidden;
+}
+
+.fallback__glow {
+  position: absolute;
+  width: 60vmin;
+  height: 60vmin;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 220, 150, 0.5), rgba(255, 170, 60, 0.06) 55%, transparent 72%);
+  transform: scale(calc(0.5 + var(--p, 0) * 1.4));
+  filter: blur(6px);
+  transition: transform 300ms linear;
+}
+
+.fallback__body {
+  position: relative;
+  text-align: center;
+  padding: 6vw;
+  display: grid;
+  gap: 1.1rem;
+}
+
+.fallback__glyph {
+  font-size: clamp(2.6rem, 12vw, 5rem);
+  color: #ffefc4;
+  text-shadow: 0 0 40px rgba(255, 200, 100, 0.85);
+  animation: badgeStar 4s ease-in-out infinite;
+}
+
+.fallback__line {
+  font-family: var(--serif);
+  font-size: clamp(1rem, 3.4vw, 1.7rem);
+  opacity: 0;
+}
+
+.fallback__line:nth-of-type(1) {
+  opacity: calc(var(--p, 0) * 12);
+}
+.fallback__line:nth-of-type(2) {
+  opacity: calc(var(--p, 0) * 3 - 0.8);
+}
+.fallback__line:nth-of-type(3) {
+  opacity: calc(var(--p, 0) * 3 - 1.7);
+}
+
+.fallback__final {
+  font-size: clamp(0.8rem, 2.4vw, 1.2rem);
+  letter-spacing: 0.14em;
+  opacity: calc(var(--p, 0) * 6 - 5.1);
+}
+
+.fallback__badge {
+  justify-self: center;
+  font-family: var(--serif);
+  letter-spacing: 0.3em;
+  font-size: clamp(0.7rem, 2.6vw, 1.1rem);
+  color: #ffe9b4;
+  border: 1px solid rgba(255, 214, 130, 0.55);
+  border-radius: 14px;
+  padding: 1.1rem 1.8rem;
+  background: rgba(30, 20, 46, 0.7);
+  box-shadow: 0 0 44px rgba(255, 190, 90, calc(max(0, var(--p, 0) * 6 - 5.2)));
+  opacity: calc(var(--p, 0) * 6 - 5.2);
+}
+
+/* ==================================================================
+   Mobile adaptation
+   ------------------------------------------------------------------
+   Not a shrink: typography moves to the upper third so the girl and the
+   star stay visible, the rail thins out, and hover-only affordances are
+   removed.
+   ================================================================== */
+
+@media (max-width: 780px), (pointer: coarse) {
+  :root {
+    --track-height: 700vh;
+  }
+
+  .phrase {
+    bottom: auto;
+    top: 8vh;
+    padding: 0 8vw;
+  }
+
+  .phrase--pin {
+    top: 7vh;
+  }
+
+  .caption {
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    text-align: center;
+    max-width: 80vw;
+    font-size: 0.54rem;
+  }
+
+  .rail {
+    right: calc(6px + env(safe-area-inset-right, 0px));
+    height: 34vh;
+    opacity: 0.55;
+  }
+
+  .rail__marker {
+    width: 30px;
+    height: 30px;
+    margin: -15px 0 0 -15px;
+  }
+
+  .badge {
+    width: min(360px, 84vw);
+  }
+
+  .ending {
+    bottom: calc(6vh + env(safe-area-inset-bottom, 0px));
+  }
+
+  .hud-title__name {
+    font-size: clamp(2.2rem, 13vw, 4rem);
+  }
+}
+
+/* Landscape phones are short; keep the text out of the middle band. */
+@media (max-height: 520px) and (pointer: coarse) {
+  .phrase {
+    top: 4vh;
+    font-size: 0.9em;
+  }
+  .rail {
+    height: 46vh;
+  }
+}
+
+/* ==================================================================
+   Reduced motion
+   ================================================================== */
+
+/* Driven by JS rather than the media query alone so the preference is
+   honoured live if the user changes it while the page is open. */
+html.is-reduced .hud-title__sub,
+html.is-reduced .badge__star,
+html.is-reduced .fallback__glyph {
+  animation: none !important;
+}
+
+html.is-reduced .stage {
+  transition-duration: 200ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hud-title__sub {
+    animation: none !important;
+  }
+}
+
+/* ==================================================================
+   Print / no-JS
+   ================================================================== */
+
+.noscript {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  padding: 8vw;
+  text-align: center;
+  background: #04060f;
+  font-family: var(--serif);
+  font-size: 1.1rem;
+  line-height: 1.6;
+}

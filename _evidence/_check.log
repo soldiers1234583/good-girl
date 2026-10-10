@@ -1,0 +1,5 @@
+
+> good-girl@1.0.0 check
+> for f in src/*.js src/*/*.js; do node --check "$f" || exit 1; done && node --check build.mjs && echo 'syntax ok'
+
+syntax ok

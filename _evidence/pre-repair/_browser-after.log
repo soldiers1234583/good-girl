@@ -1,0 +1,65 @@
+
+=== browser-check [after] /data/data/com.termux/files/home/chibi/dist/index.html ===
+  note: webgl: WebGL 2.0 (OpenGL ES 3.0 Chromium) via ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)
+  note: flags: --no-sandbox --disable-dev-shm-usage --enable-unsafe-swiftshader
+  note: program sources (attempt 1/5): 0/23 readable, alive=false, bytes=0, tags={}
+  note: program sources (attempt 2/5): 0/23 readable, alive=false, bytes=0, tags={}
+  note: program sources (attempt 3/5): 0/23 readable, alive=false, bytes=0, tags={}
+  note: program sources (attempt 4/5): 0/23 readable, alive=false, bytes=0, tags={}
+  note: program sources (attempt 5/5): 0/23 readable, alive=false, bytes=0, tags={}
+  note: boot state: {"bgTime":1.79,"starTime":1.79,"skyA":[0.039,0.071,0.188],"skyB":[0.012,0.02,0.059],"progress":0,"uTime":1.79,"uProgress":0,"uIntensity":0.34,"uReveal":0,"uInteraction":0,"uResolution":"1280x800","postEnabled":true,"tier":2,"mobile":false,"trailVisible":false,"badgeShown":true,"noWebglClass":false}
+  note: boot gl: {"lost":true,"err":37442,"programs":23}
+  note: context no-ext → waiting for three to re-init (1/5)
+  note: context no-ext → waiting for three to re-init (2/5)
+  note: context no-ext → waiting for three to re-init (3/5)
+  note: context no-ext → waiting for three to re-init (4/5)
+  note: context no-ext → waiting for three to re-init (5/5)
+  note: context no-ext → waiting for three to re-init (1/5)
+  note: context no-ext → waiting for three to re-init (2/5)
+  note: context no-ext → waiting for three to re-init (3/5)
+  note: context no-ext → waiting for three to re-init (4/5)
+  note: context no-ext → waiting for three to re-init (5/5)
+  note: context no-ext → waiting for three to re-init (1/5)
+  note: context no-ext → waiting for three to re-init (2/5)
+  note: context no-ext → waiting for three to re-init (3/5)
+  note: context no-ext → waiting for three to re-init (4/5)
+  note: context no-ext → waiting for three to re-init (5/5)
+  note: context no-ext → waiting for three to re-init (1/5)
+  note: context no-ext → waiting for three to re-init (2/5)
+  note: context no-ext → waiting for three to re-init (3/5)
+  note: context no-ext → waiting for three to re-init (4/5)
+  note: context no-ext → waiting for three to re-init (5/5)
+  note: context no-ext → waiting for three to re-init (1/5)
+  note: context no-ext → waiting for three to re-init (2/5)
+  note: context no-ext → waiting for three to re-init (3/5)
+  note: context no-ext → waiting for three to re-init (4/5)
+  note: context no-ext → waiting for three to re-init (5/5)
+  note: GL context was lost on 6/6 beats despite restore attempts (SwiftShader churn)
+  note: pixel assertions downgraded to BLOCKED: the GL context was lost at capture
+  note: sky journey: intro=0.039,0.071,0.188 → reward=0.353,0.204,0.039 → back=0.058,0.124,0.32
+  note: context no-ext → waiting for three to re-init (1/5)
+  note: context no-ext → waiting for three to re-init (2/5)
+  note: context no-ext → waiting for three to re-init (3/5)
+  note: context no-ext → waiting for three to re-init (4/5)
+  note: context no-ext → waiting for three to re-init (5/5)
+  note: mobile portrait px: 780x1688 mean=[233.7,233.7,234.3]
+  note: context no-ext → waiting for three to re-init (1/5)
+  note: context no-ext → waiting for three to re-init (2/5)
+  note: context no-ext → waiting for three to re-init (3/5)
+  note: context no-ext → waiting for three to re-init (4/5)
+  note: context no-ext → waiting for three to re-init (5/5)
+  note: reduced-motion boot: {"bgTime":0,"starTime":0,"skyA":[0.039,0.071,0.188],"skyB":[0.012,0.02,0.059],"progress":0,"uTime":0,"uProgress":0,"uIntensity":0.34,"uReveal":0,"uInteraction":0,"uResolution":"1280x800","postEnabled":true,"tier":2,"mobile":false,"trailVisible":false,"badgeShown":true,"noWebglClass":false}
+  note: console captured 48 lines (0 real errors)
+  00-intro: p=0 uP=0 uI=0.34 uR=0 uX=0 trail=false progs=23 lost=true px=[220.4,220.5,221.2] blown=24.59% max=255
+  10-approach: p=0.35 uP=0.35 uI=0.841 uR=0 uX=0 trail=false progs=23 lost=true px=[226.4,226.5,227.3] blown=32.91% max=255
+  20-contact: p=0.65 uP=0.65 uI=1.47 uR=0 uX=0.583 trail=true progs=23 lost=true px=[233.9,233.9,234.6] blown=34.22% max=255
+  30-reaction: p=0.76 uP=0.76 uI=2.619 uR=0 uX=1 trail=false progs=23 lost=true px=[233.9,233.9,234.5] blown=34.22% max=255
+  40-reward: p=0.97 uP=0.97 uI=2.123 uR=0.947 uX=1 trail=false progs=23 lost=true px=[210.5,208.3,209.1] blown=14.89% max=255
+  50-scrub-back: p=0.2 uP=0.2 uI=0.448 uR=0 uX=0 trail=false progs=23 lost=true px=[223,223.1,223.9] blown=32.74% max=255
+
+BLOCKED — could not be tested on this device (NOT passes):
+  ⚠ read 0/23 program sources in 5 attempts — GL shader-source reads need a live context and this device rarely has one
+  ⚠ context could not be restored on 5 beats — those screenshots are blank
+  ⚠ (pixel) intro screenshot is white-washed (mean [220.4,220.5,221.2]) [GL context lost at capture — frame is not the app's output]
+  ⚠ (pixel) intro has 24.59% blown pixels — highlights clip [GL context lost at capture — frame is not the app's output]
+screenshots: /data/data/com.termux/files/home/chibi/_shots/after

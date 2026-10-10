@@ -1,0 +1,20 @@
+{
+  "name": "good-girl",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "A tiny interactive film: a chibi girl, a glowing star, and a badge earned by scrolling.",
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "check": "for f in src/*.js src/*/*.js; do node --check \"$f\" || exit 1; done && node --check build.mjs && echo 'syntax ok'",
+    "build": "node build.mjs",
+    "serve": "python3 -m http.server 8080"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "jsdom": "^30.1.2"
+  }
+}

@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#04060f">
+<meta name="color-scheme" content="dark">
+<title>Good Girl — a little interactive film</title>
+<meta name="description" content="A tiny cinematic story: a girl, a glowing star, and a badge waiting at the end. Scroll to travel through it.">
+
+<!-- Open Graph so the piece still presents properly when shared. -->
+<meta property="og:title" content="Good Girl">
+<meta property="og:description" content="A tiny interactive film. Scroll to begin.">
+<meta property="og:type" content="website">
+
+<link rel="stylesheet" href="css/style.css">
+<!-- Inline SVG favicon: a gold star, no extra request. -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E%E2%98%85%3C/text%3E%3C/svg%3E">
+
+<!-- Pre-load the Three.js build so the module graph can start immediately when
+     it is needed. Local copy: the experience runs with no network at all. -->
+<link rel="modulepreload" href="src/main.js">
+</head>
+<body>
+
+<!-- The evolving colour journey. Painted on a fixed layer rather than on
+     <body> with background-attachment:fixed, which mobile Safari handles
+     badly. The canvas is transparent, so this IS the sky. -->
+<div class="backdrop" aria-hidden="true"></div>
+
+<!-- The scroll track. Its height is the length of the story; the stage inside
+     is sticky so the 3D viewport stays put while the progress advances. -->
+<div class="track">
+  <div class="stage">
+    <canvas id="scene" aria-label="An illustrated scene: a chibi girl standing in a glowing night, with a small star nearby."></canvas>
+  </div>
+</div>
+
+<div class="vignette" aria-hidden="true"></div>
+<div class="grain" aria-hidden="true"></div>
+
+<!-- The reward. Kept in its own layer above the UI so the badge can never be
+     clipped by the HUD. -->
+<div id="overlay"></div>
+
+<!-- Typography and HUD.
+     The opening title is here in the document rather than built by JS: it is
+     the first-paint content. Scene construction costs ~250ms, so it is
+     deferred to the frame after first paint — this is what the visitor sees
+     while it happens. -->
+<div id="ui">
+  <div class="hud-title" id="opening">
+    <div class="hud-title__eyebrow">A tiny interactive film</div>
+    <h1 class="hud-title__name">Good Girl</h1>
+    <div class="hud-title__sub">Scroll to begin</div>
+  </div>
+</div>
+
+<noscript>
+  <div class="noscript">
+    <p>
+      This is a scrolling story about a girl, a glowing star, and a badge.<br>
+      It needs JavaScript to draw the scene.<br><br>
+      <strong>You have earned a Good Girl Badge.</strong> ★
+    </p>
+  </div>
+</noscript>
+
+<!-- Vendored so the piece runs offline and never blocks on a CDN. -->
+<script src="vendor/three.min.js"></script>
+<!-- Optional bloom pipeline (r128 examples, concatenated). The app
+     feature-detects THREE.EffectComposer — without this file the experience
+     is identical except for the bloom. -->
+<script src="vendor/postprocessing.js"></script>
+<script type="module" src="src/main.js"></script>
+
+</body>
+</html>
